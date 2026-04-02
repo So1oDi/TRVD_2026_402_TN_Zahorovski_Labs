@@ -1,0 +1,135 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  password_hash  String?
+  display_name   String
+  role           String    @default("player") // "player", "dm", "admin"
+  created_at     DateTime  @default(now())
+  sessions       Session[] @relation("SessionDM")
+  participants   SessionParticipant[]
+  characters     Character[]
+  races          Race[]     @relation("RaceCreator")
+  classes        Class[]    @relation("ClassCreator")
+  spells         Spell[]    @relation("SpellCreator")
+  items          Item[]     @relation("ItemCreator")
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  name        String
+  dm_id       String
+  dm          User     @relation("SessionDM", fields: [dm_id], references: [id])
+  invite_code String   @unique
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  characters  Character[]
+  participants SessionParticipant[]
+}
+
+model SessionParticipant {
+  session_id String
+  user_id    String
+  session    Session @relation(fields: [session_id], references: [id])
+  user       User    @relation(fields: [user_id], references: [id])
+
+  @@id([session_id, user_id])
+}
+
+model Race {
+  id          String   @id @default(uuid())
+  name        String
+  speed       Int      @default(30)
+  traits      Json?    // JSONB
+  is_homebrew Boolean  @default(false)
+  creator_id  String?
+  creator     User?    @relation("RaceCreator", fields: [creator_id], references: [id])
+  characters  Character[]
+}
+
+model Class {
+  id          String   @id @default(uuid())
+  name        String
+  hit_die     Int?
+  features    Json?
+  is_homebrew Boolean  @default(false)
+  creator_id  String?
+  creator     User?    @relation("ClassCreator", fields: [creator_id], references: [id])
+  characters  Character[]
+}
+
+model Spell {
+  id          String   @id @default(uuid())
+  name        String
+  level       Int?
+  school      String?
+  description String?
+  is_homebrew Boolean  @default(false)
+  creator_id  String?
+  creator     User?    @relation("SpellCreator", fields: [creator_id], references: [id])
+  characterSpells CharacterSpell[]
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  name        String
+  type        String?
+  damage      String?
+  properties  Json?
+  is_homebrew Boolean  @default(false)
+  creator_id  String?
+  creator     User?    @relation("ItemCreator", fields: [creator_id], references: [id])
+  characterItems CharacterInventory[]
+}
+
+model Character {
+  id               String   @id @default(uuid())
+  user_id          String
+  user             User     @relation(fields: [user_id], references: [id])
+  session_id       String?
+  session          Session? @relation(fields: [session_id], references: [id])
+  name             String
+  race_id          String?
+  race             Race?    @relation(fields: [race_id], references: [id])
+  class_id         String?
+  class            Class?   @relation(fields: [class_id], references: [id])
+  level            Int      @default(1)
+  experience_points Int    @default(0)
+  current_hp       Int
+  max_hp           Int
+  armor_class      Int      @default(10)
+  stats            Json     // JSONB
+  updated_at       DateTime @default(now()) @updatedAt
+  characterSpells  CharacterSpell[]
+  characterItems   CharacterInventory[]
+}
+
+model CharacterSpell {
+  character_id String
+  spell_id     String
+  is_prepared  Boolean @default(false)
+  character    Character @relation(fields: [character_id], references: [id])
+  spell        Spell     @relation(fields: [spell_id], references: [id])
+
+  @@id([character_id, spell_id])
+}
+
+model CharacterInventory {
+  character_id String
+  item_id      String
+  quantity     Int      @default(1)
+  is_equipped  Boolean  @default(false)
+  character    Character @relation(fields: [character_id], references: [id])
+  item         Item      @relation(fields: [item_id], references: [id])
+
+  @@id([character_id, item_id])
+}
